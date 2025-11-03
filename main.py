@@ -1,3 +1,5 @@
+# venv\Scripts\activate
+
 import pandas as pd
 import requests
 import os
