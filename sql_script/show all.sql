@@ -1,7 +1,12 @@
 
 --for table historical and daily
 
-SELECT * FROM main.historical h LIMIT 10;
+DELETE FROM main.historical 
+WHERE visit_date = DATE '2025-10-29';
+
+SELECT count(*) FROM main.historical h;
+
+SELECT max(visit_date) FROM main.historical h;
 
 SELECT COUNT(*) FROM main.historical h ;
 
@@ -9,7 +14,13 @@ SELECT
     MIN(EXTRACT(YEAR FROM visit_date)) AS earliest_year,
     MAX(EXTRACT(YEAR FROM visit_date)) AS latest_year,
     COUNT(DISTINCT EXTRACT(YEAR FROM visit_date)) AS unique_years
-FROM main.daily d;
+FROM main.historical h ;
+
+
+--SELECT spesific year
+SELECT count(*)
+FROM main.historical
+WHERE visit_date = DATE '2025-10-30';
 
 SELECT 
     MIN(EXTRACT(MONTH FROM visit_date)) AS earliest_month,
@@ -18,7 +29,7 @@ SELECT
 FROM main.daily d;
 
 SELECT MIN(visit_date) , MAX(visit_date) 
-FROM main.historical h 
+FROM main.historical h;
 
 
 
@@ -42,9 +53,17 @@ SELECT DISTINCT blood_group FROM main.historical h ORDER BY blood_group ;
 
 
 --for table rate
-SELECT DISTINCT race FROM main.rate r ORDER BY race  ;
-SELECT DISTINCT gender FROM main.rate r ORDER BY gender ;
-SELECT min(birth_date) , max(birth_date) ,count(DISTINCT birth_date) FROM main.rate r ;
+SELECT DISTINCT race FROM main.donorrate d  ORDER BY race  ;
+SELECT DISTINCT gender FROM main.donorrate d ORDER BY gender ;
+SELECT min(birth_date) , max(birth_date) ,count(DISTINCT birth_date) FROM main.donorrate d ;
 
 --for table retention
 SELECT min(birth_date) , max(birth_date) ,count(DISTINCT birth_date) FROM main.retention r ;
+
+
+
+
+
+
+
+SELECT max(latest) FROM main.donorrate r;
