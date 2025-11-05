@@ -14,9 +14,9 @@ db_path = os.getenv("DUCKDB_FILE_PATH")
 def load_data_to_db(con,url,table):
     try:
         query = f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet('{url}')"
-        print(f"Starting to loading data into {table} table")
+        print(f"Starting to loading data into table {table}")
         con.execute(query)
-        print(f"Successfully loaded data into {table} histocial\n")
+        print(f"Successfully loaded data into table {table} \n")
     except Exception as e:
         print(f"Fail to full load on table {table} because : {e}")
 
