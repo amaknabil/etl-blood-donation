@@ -1,5 +1,6 @@
 
 --for table historical and daily
+SELECT DISTINCT inst_code FROM historical h ORDER BY inst_code ; 
 
 DELETE FROM main.historical 
 WHERE visit_date = DATE '2025-10-29';
@@ -62,8 +63,61 @@ SELECT min(birth_date) , max(birth_date) ,count(DISTINCT birth_date) FROM main.r
 
 
 
-
-
-
-
 SELECT max(latest) FROM main.donorrate r;
+
+
+
+
+-- Create a sample table
+CREATE TABLE locations (
+    name VARCHAR,
+    latitude DOUBLE,
+    longitude DOUBLE
+);
+
+-- Insert your location
+INSERT INTO locations (name, latitude, longitude)
+VALUES ('Yong Peng', );
+
+-- Query the table and create the geometry
+SELECT 
+    name,
+    ST_Point(longitude, latitude) AS geom
+FROM locations;
+
+INSTALL spatial;
+LOAD spatial;
+
+CREATE TABLE my_locations (
+    latitude DOUBLE,
+    longitude DOUBLE
+);
+
+INSERT INTO my_locations (latitude, longitude) VALUES
+(1.463136148, 103.7468032),
+(6.149091168, 100.4065559),
+(6.125448302, 102.2463128),
+(2.217374167, 102.2616891),
+(2.709977349, 101.9453237),
+(3.800909762, 103.3417734),
+(3.453300959, 102.4537439),
+(5.394363705, 100.4075842),
+(5.417555904, 100.3106202),
+(4.604132976, 101.0907771),
+(4.851211566, 100.7374523),
+(4.185841497, 100.6627478),
+(3.020305789, 101.4406719),
+(5.324098277, 103.1511672),
+(5.968147463, 116.096077),
+(5.859199163, 118.1036425),
+(4.250073577, 117.8812042),
+(1.544930993, 110.340032),
+(4.37458904, 114.0001665),
+(2.296717562, 111.8920928),
+(3.173280168, 101.7069171),
+(1.837805527, 102.9415869);
+
+
+
+SELECT ST_Point(longitude, latitude) AS map_point
+FROM my_locations;
