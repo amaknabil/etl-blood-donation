@@ -121,3 +121,15 @@ INSERT INTO my_locations (latitude, longitude) VALUES
 
 SELECT ST_Point(longitude, latitude) AS map_point
 FROM my_locations;
+
+
+
+
+INSTALL httpfs;
+LOAD spatial;
+LOAD httpfs;
+
+CREATE TABLE malaysia_states AS 
+SELECT * FROM ST_Read('https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/MYS/ADM1/geoBoundaries-MYS-ADM1_simplified.geojson');
+
+SELECT * FROM malaysia_states;
