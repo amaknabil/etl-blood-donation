@@ -4,3 +4,4 @@ pyarrow
 requests
 duckdb
 openpyxl
+matplotlib

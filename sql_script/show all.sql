@@ -1,6 +1,9 @@
 
 --for table historical and daily
-SELECT DISTINCT inst_code FROM historical h ORDER BY inst_code ; 
+SELECT h.inst_code , ic.state,ic.hospital 
+FROM main.inst_code ic 
+LEFT JOIN main.historical h on h.inst_code = ic.inst_code 
+LEFT JOIN main.malaysia_states ms ON ic.state = ms.shapeName ; 
 
 DELETE FROM main.historical 
 WHERE visit_date = DATE '2025-10-29';
