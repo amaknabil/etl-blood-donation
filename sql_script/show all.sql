@@ -1,9 +1,11 @@
 
 --for table historical and daily
-SELECT h.inst_code , ic.state,ic.hospital 
+SELECT h.inst_code , ic.state,ic.hospital , count(*)
 FROM main.inst_code ic 
 LEFT JOIN main.historical h on h.inst_code = ic.inst_code 
-LEFT JOIN main.malaysia_states ms ON ic.state = ms.shapeName ; 
+WHERE h.visit_date = DATE '2025-11-01'
+GROUP BY h.inst_code ,ic.state ,ic.hospital ;
+--LEFT JOIN main.malaysia_states ms ON ic.state = ms.shapeName ; 
 
 DELETE FROM main.historical 
 WHERE visit_date = DATE '2025-10-29';
@@ -136,3 +138,18 @@ CREATE TABLE malaysia_states AS
 SELECT * FROM ST_Read('https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/MYS/ADM1/geoBoundaries-MYS-ADM1_simplified.geojson');
 
 SELECT * FROM malaysia_states;
+
+SELECT 
+    ic.inst_code, 
+    ic.state, 
+    ic.hospital, 
+    COUNT(h.visit_date) AS visit_count
+FROM 
+    main.inst_code ic
+LEFT JOIN 
+    main.historical h ON ic.inst_code = h.inst_code 
+                     AND YEAR(h.visit_date) = 2025
+GROUP BY 
+    ic.inst_code, 
+    ic.state, 
+    ic.hospital;
