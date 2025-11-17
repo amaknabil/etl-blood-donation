@@ -6,3 +6,4 @@ duckdb
 openpyxl
 matplotlib
 pyTelegramBotAPI
+prefect
