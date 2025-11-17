@@ -2,5 +2,5 @@ venv
 .env
 parquet
 blood_data.duckdb
-__pycache_/
+__pycache__
 
