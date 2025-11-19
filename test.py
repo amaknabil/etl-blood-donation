@@ -46,6 +46,6 @@ try:
 
     con.close()
     print("close db")
-
+# hi
 except Exception as e:
     print(f"Fail because: {e}")
