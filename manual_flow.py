@@ -1,0 +1,3 @@
+from flows.blood_donation_flow import etl_blood_donation_flow
+
+etl_blood_donation_flow()

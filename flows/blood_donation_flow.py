@@ -8,7 +8,7 @@ import datetime
 from tasks.etl_task import load_data_to_db,load_incremental_daily
 from tasks.telegram_task import send_daily_report,send_update_incremental
 x = datetime.datetime.now()
-
+ 
 @flow(name=f"ETL-Blood Donation - {x}", log_prints=True)
 def etl_blood_donation_flow():
     try:
