@@ -7,3 +7,6 @@ openpyxl
 matplotlib
 pyTelegramBotAPI
 prefect
+lifelines
+folium
+geopandas
