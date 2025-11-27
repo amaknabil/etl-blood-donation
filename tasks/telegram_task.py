@@ -15,20 +15,18 @@ def send_update_new_data_loaded(updates: dict, bot_token: str, channel_id: str):
     
     # 1. Create a Header with a Timestamp
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message_lines = [f"<b>🚀 ETL Pipeline Execution Report</b>"]
-    message_lines.append(f"<i>⏰ {current_time}</i>\n")
+    message_lines = [f"<b>ETL Pipeline Execution Report</b>"]
+    message_lines.append(f"<i>{current_time}</i>\n")
     
     # 2. Loop through the dictionary of updates to build the body
     total_rows = 0
     for table_name, count in updates.items():
         total_rows += count
-        # Use an emoji based on whether data was actually added
-        icon = "✅" if count > 0 else "zzZ"
-        # <code> tags make the text monospaced (good for alignment)
-        message_lines.append(f"{icon} <b>{table_name.title()}:</b> <code>+{count} rows</code>")
+
+        message_lines.append(f"<b>{table_name.title()}:</b> <code>+{count} rows</code>")
 
     # 3. Add a Footer summary
-    message_lines.append(f"\n<b>📊 Total New Records:</b> {total_rows}")
+    message_lines.append(f"\n<b>Total New Records:</b> {total_rows}")
 
     # Join all lines into one string
     final_message = "\n".join(message_lines)
