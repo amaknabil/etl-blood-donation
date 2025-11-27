@@ -5,8 +5,8 @@ from prefect.logging import get_run_logger
 import os
 import datetime 
 
-from tasks.etl_task import load_data_to_db,load_incremental_daily
-from tasks.telegram_task import send_daily_report,send_update_incremental
+from tasks.etl_task import load_transformed_donorrate_to_db,load_incremental_daily,load_transformed_retention_to_db
+from tasks.telegram_task import send_daily_report,send_update_new_data_loaded
 x = datetime.datetime.now()
  
 @flow(name=f"ETL-Blood Donation - {x}", log_prints=True)
@@ -23,19 +23,25 @@ def etl_blood_donation_flow():
         bot_token = os.getenv("BOT_TOKEN")
         channel_id = os.getenv("CHANNEL_ID")
 
-        table = {
-            "retention":os.getenv("RETENTION_PARQUET_URL"),
-            "donorrate":os.getenv("RATE_PARQUET_URL")
-        }
+    
+        retention_url = os.getenv("RETENTION_PARQUET_URL")
+        donorrate_url = os.getenv("RATE_PARQUET_URL")
+  
 
-        # load data
-        for table_name,url in table.items():
-            total_new_data = load_data_to_db(url,table_name, db_path) 
-            send_update_incremental(table_name,total_new_data,bot_token,channel_id)
+        retention_total_new_data = load_transformed_retention_to_db(retention_url,'retention', db_path) 
+        donorrate_total_new_data = load_transformed_donorrate_to_db(donorrate_url,'donorrate', db_path) 
+        daily_total_new_data_insert = load_incremental_daily(daily_url,"historical",db_path)
+
+
+        update_summary = {
+            "Retention":retention_total_new_data,
+            "Donor Rate": donorrate_total_new_data,
+            "Historical Data": daily_total_new_data_insert
+            }
         
-        total_new_data_insert = load_incremental_daily(daily_url,"historical",db_path)
-        send_update_incremental("historical",total_new_data_insert,bot_token,channel_id)
+        send_update_new_data_loaded(update_summary,bot_token,channel_id)
         send_daily_report(db_path,bot_token,channel_id)
+
     except Exception as e:
         logger.error(f"Failed because: {e}")
 
