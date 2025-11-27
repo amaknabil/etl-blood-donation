@@ -61,7 +61,6 @@ def load_transformed_historical_to_db(con, url, table):
     try:
         print(f"Starting to load data into table {table}...")
         
-        # 1. The Transformation Query using NULLIF for cleaner code
         query = f"""
             CREATE OR REPLACE TABLE {table} AS
             SELECT 
