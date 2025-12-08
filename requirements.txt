@@ -10,3 +10,4 @@ prefect
 lifelines
 folium
 geopandas
+seaborn

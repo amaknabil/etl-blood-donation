@@ -2,8 +2,10 @@ from prefect import task
 from prefect.logging import get_run_logger
 
 import telebot
+from telebot.types import InputMediaPhoto
 import matplotlib.pyplot as plt
 import io
+import pandas as pd
 
 import duckdb
 from datetime import datetime
@@ -85,3 +87,54 @@ def send_daily_report(db_path:str,bot_token:str,channel_id:str):
     finally:
         if con:
             con.close()
+
+
+
+@task
+def send_graphs(bot_token: str, channel_id: str, *graphs):
+    """
+    Sends a dynamic number of graphs as a single album (MediaGroup) using telebot.
+    
+    Usage: send_graphs_dynamic(token, channel, plot1, plot2, plot3, ...)
+    """
+    logger = get_run_logger()
+    
+    try:
+        # 1. Initialize Bot
+        bot = telebot.TeleBot(bot_token)
+        
+        # 2. Prepare Media Group
+        media_group = []
+        
+        # Enumerate gives us an index (0, 1, 2...) to help with logic
+        for index, graph_buffer in enumerate(graphs):
+            # Safety check: Ensure the buffer is at the start
+            if isinstance(graph_buffer, io.BytesIO):
+                graph_buffer.seek(0)
+            
+            # Create the Photo object
+            # We explicitly allow 'None' captions for all except the first one (optional)
+            photo = InputMediaPhoto(graph_buffer)
+            
+            # 3. Add a caption only to the very first image
+            if index == 0:
+                photo.caption = (
+                    f"📊 **Analytics Report**\n"
+                    f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}\n"
+                    f"Contains {len(graphs)} charts."
+                )
+                photo.parse_mode = 'Markdown'
+            
+            media_group.append(photo)
+
+        # 4. Send
+        if media_group:
+            bot.send_media_group(chat_id=channel_id, media=media_group)
+            logger.info(f"✅ Successfully sent {len(media_group)} graphs to channel {channel_id}")
+        else:
+            logger.warning("⚠️ No graphs were provided to send.")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to send telegram message: {e}")
+        # We don't raise here if we want the flow to finish even if notification fails
+        # raise e
