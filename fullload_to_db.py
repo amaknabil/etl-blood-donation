@@ -1,6 +1,7 @@
 import os
 import duckdb
 from dotenv import load_dotenv,find_dotenv
+from pathlib import Path
 
 env_path = find_dotenv()
 load_dotenv(env_path)
@@ -12,9 +13,12 @@ donnorrate_url = os.getenv("RATE_PARQUET_URL")
 db_path = os.getenv("DUCKDB_FILE_PATH") 
 
 def add_table(con,csv,table):
+    BASE_DIR = Path(__file__).parent
+    csv_path = BASE_DIR / 'data' / csv
+    str_csv = str(csv_path)
     try:
         print(f"Loading table for {table}\n")
-        query = f"CREATE OR REPLACE TABLE {table} as SELECT * FROM read_csv('{csv}') "
+        query = f"CREATE OR REPLACE TABLE {table} as SELECT * FROM read_csv('{str_csv}') "
         con.execute(query)
         print(f"successful added table {table}\n")
     except Exception as e:
@@ -102,8 +106,8 @@ try:
     print(f"Connecting to {db_path}")
     con = duckdb.connect(db_path)
     print(f"Successfully connected to {db_path}\n")
-    add_table(con,'.\\data\\inst_code.csv','inst_code')
-    add_table(con,'.\\data\\race.csv','race')
+    add_table(con,'inst_code.csv','inst_code')
+    add_table(con,'race.csv','race')
     load_transformed_historical_to_db(con,historical_url,'historical')
     load_transformed_retention_to_db(con,retention_url,'retention')
     load_transformed_donorrate_to_db(con,donnorrate_url,"donorrate")

@@ -9,9 +9,9 @@ from tasks.etl_task import load_transformed_donorrate_to_db,load_incremental_dai
 from tasks.telegram_task import send_daily_report,send_update_new_data_loaded,send_graphs
 
 from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_line_graph,calculate_retention
-x = datetime.datetime.now()
+
  
-@flow(name=f"ETL-Blood Donation - {x}", log_prints=True)
+@flow(name=f"ETL-Blood Donation ", log_prints=True)
 def etl_blood_donation_flow():
     try:
         logger = get_run_logger()
