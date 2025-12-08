@@ -60,7 +60,7 @@ def etl_blood_donation_flow():
 if __name__ == "__main__":
 
     etl_blood_donation_flow.serve(
-        name=f"daily-blood-data-deployment- {x}",
+        name=f"daily-blood-data-deployment",
         
         #  every 10 minutes
         cron="*/10 * * * *",
