@@ -156,3 +156,20 @@ Here’s how you can run the project in Ubuntu Server:
     ```sh
     journalctl -u blood_etl -f
     ```
+
+
+## Run in Local
+
+1. **Run Prefect Server**
+    ```sh
+    prefect server start
+    ```
+
+2. **Set url**
+    ```sh
+    $env:PREFECT_API_URL="http://127.0.0.1:4200/api"
+    ```
+3. **Run Flows**
+    ```sh
+    python -m flows.blood_donation_flow
+    ```

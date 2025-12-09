@@ -4,7 +4,7 @@ from dotenv import load_dotenv,find_dotenv
 from pathlib import Path
 
 env_path = find_dotenv()
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 
 historical_url = os.getenv("COMPLETE_PARQUET_URL")
 retention_url = os.getenv("RETENTION_PARQUET_URL")
@@ -108,6 +108,7 @@ try:
     print(f"Successfully connected to {db_path}\n")
     add_table(con,'inst_code.csv','inst_code')
     add_table(con,'race.csv','race')
+    print(historical_url)
     load_transformed_historical_to_db(con,historical_url,'historical')
     load_transformed_retention_to_db(con,retention_url,'retention')
     load_transformed_donorrate_to_db(con,donnorrate_url,"donorrate")
