@@ -11,30 +11,35 @@ import duckdb
 from datetime import datetime
 
 @task(retries=2, retry_delay_seconds=5)
-def send_update_new_data_loaded(updates: dict, bot_token: str, channel_id: str):
+def send_update_new_data_loaded(updates: dict, bot_token: str, channel_id: str, latest_date_in_db):
     logger = get_run_logger()
     bot = telebot.TeleBot(bot_token)
     
-    # 1. Create a Header with a Timestamp
+  
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message_lines = [f"<b>ETL Pipeline Execution Report</b>"]
+    message_lines = [f"<b>ETL Pipeline Report</b>"]
     message_lines.append(f"<i>{current_time}</i>\n")
-    
-    # 2. Loop through the dictionary of updates to build the body
+
     total_rows = 0
     for table_name, count in updates.items():
         total_rows += count
-
         message_lines.append(f"<b>{table_name.title()}:</b> <code>+{count} rows</code>")
 
-    # 3. Add a Footer summary
-    message_lines.append(f"\n<b>Total New Records:</b> {total_rows}")
+ 
+    formatted_date = latest_date_in_db.strftime("%d %b %Y") if latest_date_in_db else "N/A"
+    
+    message_lines.append(f"\n<b>Data Up To:</b> <code>{formatted_date}</code>")
+    message_lines.append(f"<b>Total New Records:</b> {total_rows}")
 
-    # Join all lines into one string
+    
+    if total_rows > 0:
+        message_lines.insert(0, "<b>New Data Loaded Successfully!</b>")
+    else:
+        message_lines.insert(0, "<b>No New Data Found</b>")
+
     final_message = "\n".join(message_lines)
 
     try:
-        # IMPORTANT: Set parse_mode to 'HTML'
         bot.send_message(channel_id, text=final_message, parse_mode='HTML')
         logger.info("Consolidated Telegram report sent successfully.")
     except Exception as e:

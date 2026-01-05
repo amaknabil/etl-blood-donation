@@ -6,7 +6,7 @@ import os
 import datetime 
 
 from tasks.etl_task import load_transformed_donorrate_to_db,load_incremental_daily,load_transformed_retention_to_db
-from tasks.telegram_task import send_daily_report,send_update_new_data_loaded,send_graphs
+from tasks.telegram_task import send_update_new_data_loaded,send_graphs
 
 from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_line_graph,calculate_retention
 
@@ -32,16 +32,16 @@ def etl_blood_donation_flow():
 
         retention_total_new_data = load_transformed_retention_to_db(retention_url,'retention', db_path) 
         donorrate_total_new_data = load_transformed_donorrate_to_db(donorrate_url,'donorrate', db_path) 
-        daily_total_new_data_insert = load_incremental_daily(daily_url,"historical",db_path)
+        daily_total_new_data_insert,latest_date_in_db = load_incremental_daily(daily_url,"historical",db_path)
 
 
         update_summary = {
             "Retention":retention_total_new_data,
             "Donor Rate": donorrate_total_new_data,
             "Historical Data": daily_total_new_data_insert
-            }
+        }
         
-        send_update_new_data_loaded(update_summary,bot_token,channel_id)
+        send_update_new_data_loaded(update_summary,bot_token,channel_id,latest_date_in_db)
 
         # send graph start
         rate_retention = calculate_retention(db_path,'retention')
