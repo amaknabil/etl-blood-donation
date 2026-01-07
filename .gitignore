@@ -4,4 +4,4 @@ parquet
 blood_data.duckdb
 __pycache__/
 temp_data
-.duckdb
+*.duckdb

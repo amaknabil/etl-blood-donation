@@ -40,19 +40,8 @@ def load_transformed_retention_to_db(con,url,table):
         try:
             query = f"""
                         create or replace table {table} as
-                        select *, 
-                        lag(visit_date,1,visit_date) over(w) as previous_visit,
-                        lead(visit_date,1,visit_date) over(w) as next_visit,
-                        date_diff('day', LAG(visit_date) OVER w, visit_date) AS days_diff,
-                        case
-                            when lag(visit_date) over w is null then 'First Visit'
-                            when lead(visit_date) over w is null then 'Last Visit'
-                            else 'Returning'
-                        end as visit_status,
-                        row_number() over (partition by donor_id order by visit_date) as nth_visit,
-                        year(visit_date) - birth_date as age
+                        select *
                         from read_parquet('{url}')
-                        window w as (partition by donor_id order by visit_date)
                         order by donor_id,visit_date 
                     """
             print(f"Starting to loading data into table {table}")
@@ -86,7 +75,7 @@ def load_transformed_historical_to_db(con, url, table):
         
         # Execute the transformation
         con.execute(query)
-
+        print(f"Successfully loaded data into table {table} \n")
     except Exception as e:
         # 4. Correctly capture the specific error 'e'
         print(f"Fail to full load on table {table} because: {e}")
