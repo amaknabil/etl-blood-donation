@@ -368,3 +368,20 @@ def load_data_to_db(url: str, table: str, db_path: str) -> tuple:
         if con:
             con.close()
 
+@task(retries=3, retry_delay_seconds=10)
+def get_latest_date_in_db(db_path:str,table: str):
+    con =None
+    try:
+        with duckdb.connect(db_path, read_only=True) as con:
+
+            query = f'SELECT MAX(visit_date) FROM "{table}"'
+            result = con.execute(query).fetchone()
+            return result[0] if result else None
+    except duckdb.Error as e:
+            print(f"Database error: {e}")
+            return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+
+
