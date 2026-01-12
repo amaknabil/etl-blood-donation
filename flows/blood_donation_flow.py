@@ -5,7 +5,7 @@ from prefect.logging import get_run_logger
 import os
 from tasks.etl_task import load_data_to_db, check_available_daily_data,check_available_other_data, get_latest_date_in_db
 from tasks.telegram_task import send_update_new_data_loaded,send_graphs
-from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_line_graph,calculate_retention
+from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_area_graph,calculate_retention
 
  
 @flow(retries=3,retry_delay_seconds=10,name=f"ETL-Blood Donation ", log_prints=True)
@@ -55,11 +55,11 @@ def etl_blood_donation_flow():
         rate_retention = calculate_retention(db_path,'retention',1)
 
         heatmap = generate_heatmap_retention(rate_retention)
-        # linegraph = generate_blood_group_line_graph(db_path,'historical')
+        linegraph = generate_blood_group_area_graph(db_path,'historical')
         # histogram = generate_age_histogram(db_path,'donorrate')
         # boxplot = generate_age_gender_boxplot(db_path,'donorrate')
 
-        send_graphs(bot_token,channel_id,heatmap)
+        send_graphs(bot_token,channel_id,heatmap,linegraph)
 
     except Exception as e:
         logger.error(f"Failed because: {e}")
