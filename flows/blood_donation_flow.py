@@ -30,9 +30,9 @@ def etl_blood_donation_flow():
         latest_date_db = get_latest_date_in_db(db_path,"historical")
 
         #check data freshness
-        if latest_date_db == yesterday:
-            logger.info("Data is already updated. No action needed.")
-            return
+        # if latest_date_db == yesterday:
+        #     logger.info("Data is already updated. No action needed.")
+        #     return
   
         # check_available_daily_data(daily_url,db_path,"historical")
         # check_available_other_data(retention_url,db_path,"retention")
@@ -52,14 +52,14 @@ def etl_blood_donation_flow():
         send_update_new_data_loaded(update_summary,bot_token,channel_id,latest_date_in_db)
 
         # send graph start
-        # # rate_retention = calculate_retention(db_path,'retention')
+        rate_retention = calculate_retention(db_path,'retention',1)
 
-        # heatmap = generate_heatmap_retention(rate_retention)
+        heatmap = generate_heatmap_retention(rate_retention)
         # linegraph = generate_blood_group_line_graph(db_path,'historical')
         # histogram = generate_age_histogram(db_path,'donorrate')
         # boxplot = generate_age_gender_boxplot(db_path,'donorrate')
 
-        # send_graphs(bot_token,channel_id,heatmap,linegraph,histogram,boxplot)
+        send_graphs(bot_token,channel_id,heatmap)
 
     except Exception as e:
         logger.error(f"Failed because: {e}")

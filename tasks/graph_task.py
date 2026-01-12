@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import matplotlib
-# CRITICAL: Use 'Agg' backend to prevent "display not found" errors on servers
 matplotlib.use('Agg') 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -22,54 +21,103 @@ def _save_fig_to_buffer(fig) -> io.BytesIO:
         plt.close(fig) # Explicitly close to prevent memory leaks in long-running flows
 
 @task
-def calculate_retention(db_path, table) -> dict:
+def generate_heatmap_retention(rate_retention:dict) -> io.BytesIO:
+    logger = get_run_logger() # Initialize logger if using Prefect 2.x
+    
+    try:
+        matrix_data = []
+        rows = []
+
+        # 1. Process Data
+        for start_year, data in rate_retention.items():
+            rows.append(start_year)
+            base_count = data['total']
+            
+            row_dict = {}
+            row_dict[0] = 100.0
+            
+            for future_year, count in data.items():
+                if future_year == 'total':
+                    continue
+                
+                delta_years = future_year - start_year
+                if delta_years > 0:
+                    percentage = (count / base_count) * 100
+                    row_dict[delta_years] = percentage
+                    
+            matrix_data.append(row_dict)
+
+        df = pd.DataFrame(matrix_data, index=rows)
+        df = df.sort_index()
+
+        # 2. Create Figure (Assign to 'fig' variable)
+        fig = plt.figure(figsize=(12, 8))
+        
+        # 3. Plot Heatmap
+        ax = sns.heatmap(df, 
+                        annot=True, 
+                        fmt=".1f", 
+                        cmap="Reds", 
+                        cbar=False, 
+                        vmin=0, vmax=100) 
+
+        # 4. Styling
+        ax.set_title("% of Donors Still Donating after N Years", fontsize=16, pad=40)
+        ax.set_ylabel("Donated Blood in", fontsize=14, labelpad=20)
+        ax.xaxis.tick_top()
+        ax.xaxis.set_label_position('top') 
+        plt.yticks(rotation=0) 
+        plt.tight_layout()
+
+        return _save_fig_to_buffer(fig)
+
+    except Exception as e:
+        logger.error(f"Failed to build heatmap: {e}")
+        raise e
+ 
+@task
+def calculate_retention(db_path, table,total_donation) -> dict:
     logger = get_run_logger()
     logger.info(f"Starting to calculate rate of retention")
     con = None
     try:
         con = duckdb.connect(db_path)
-        # 1. Get Date Range
-        year_range = con.execute(f"SELECT min(year(visit_date)), max(year(visit_date)) FROM {table}").fetchall()
-        start_year, end_year = year_range[0][0], year_range[0][1]
+        results = {}
+        min_year, max_year = con.execute(f"select min(year(visit_date)) ,max(year(visit_date)) from {table}").fetchall()[0]
 
-        # 2. Get Total New Donors (Denominator)
-        total_donors_query = con.execute(f"""
-            SELECT year(visit_date) as year, count(distinct donor_id)
-            FROM {table} 
-            WHERE visit_status = 'First Visit'
-            GROUP BY year
-        """).fetchall()
-        total_new_donor = dict(total_donors_query)
+        for start_year in range(min_year, max_year + 1):
+            results[start_year] = {}
+            parent_query = f"""
+                SELECT COUNT(DISTINCT donor_id) 
+                FROM {table}
+                WHERE YEAR(visit_date) = {start_year}
+                HAVING COUNT(*) >= {total_donation}
 
-        # 3. Calculate Retention (Numerator)
-        rate_retention = {}
+            """
+            parent_count = con.execute(parent_query).fetchone()[0]
 
-        for i in range(0, end_year - start_year + 1):
-            parent_year = start_year + i
-            
-            if parent_year not in total_new_donor or total_new_donor[parent_year] == 0:
-                continue
-                
-            rate_retention[parent_year] = {}
-            
-            for j in range(0, end_year - parent_year + 1):
-                child_year = parent_year + j
-                
-                # Optimized Self-Join Query
-                numerator = con.execute(f"""
-                    SELECT count(distinct t2.donor_id)
-                    FROM {table} t1
-                    JOIN {table} t2 ON t1.donor_id = t2.donor_id
-                    WHERE t1.visit_status = 'First Visit'
-                    AND year(t1.visit_date) = {parent_year} 
-                    AND year(t2.visit_date) = {child_year}
-                """).fetchone()[0]
-                
-                if total_new_donor[parent_year] > 0:
-                    rate = (numerator / total_new_donor[parent_year]) * 100
-                    rate_retention[parent_year][child_year] = round(rate, 2)
-                    
-        return rate_retention
+            results[start_year]["total"] = parent_count
+
+            for next_year in range(start_year + 1, max_year + 1):
+                query = f"""SELECT 
+                            COUNT(DISTINCT r.donor_id)
+                            FROM 
+                                {table} r
+                            WHERE 
+                                YEAR(r.visit_date) = {next_year}
+                                AND r.donor_id IN (
+                                    SELECT donor_id
+                                    FROM {table}
+                                    WHERE YEAR(visit_date) = {start_year}
+                                    GROUP BY donor_id
+                                    HAVING COUNT(*) >= {total_donation}
+                                );
+
+                """
+                count = con.execute(query).fetchone()[0]
+                results[start_year][next_year] = count
+
+        return results
 
     except Exception as e:
         logger.error(f"Fail to calculate retention: {e}")
@@ -78,62 +126,6 @@ def calculate_retention(db_path, table) -> dict:
         if con:
             con.close()
             logger.info("Database connection closed.")
-
-
-@task
-def generate_heatmap_retention(rate_retention: dict) -> io.BytesIO:
-    logger = get_run_logger()
-    try:
-        # Data Prep
-        data = rate_retention 
-        rows = sorted(data.keys()) 
-        cols = sorted({child for inner in data.values() for child in inner.keys()})
-        mat = pd.DataFrame(index=rows, columns=cols, dtype=float)
-
-        for parent, children in data.items():
-            for child, val in children.items():
-                mat.loc[parent, child] = val
-
-        mat_for_plot = mat.T.sort_index().sort_index(axis=1)
-
-        # Plotting
-        fig, ax = plt.subplots(figsize=(12, 8))
-        masked = np.ma.masked_invalid(mat_for_plot.values)
-        cmap = plt.cm.Reds
-        cmap.set_bad(color='#f5f5f5')
-
-        im = ax.imshow(masked, aspect='auto', cmap=cmap, interpolation='nearest')
-
-        # Axis Config
-        ax.set_xticks(range(len(mat_for_plot.columns)))
-        ax.set_xticklabels(mat_for_plot.columns, rotation=45, ha='right')
-        ax.set_yticks(range(len(mat_for_plot.index)))
-        ax.set_yticklabels(mat_for_plot.index)
-        ax.set_xlabel('Cohort Year (First Visit)', fontsize=12, fontweight='bold')
-        ax.set_ylabel('Retention Year (Return Visit)', fontsize=12, fontweight='bold')
-        ax.set_title('Donor Retention Heatmap (%)', fontsize=14, pad=20)
-
-        cbar = plt.colorbar(im, ax=ax)
-        cbar.set_label('Retention Rate (%)')
-
-        # Annotations
-        threshold = masked.max() / 2 
-        for i in range(len(mat_for_plot.index)):
-            for j in range(len(mat_for_plot.columns)):
-                val = mat_for_plot.iat[i, j]
-                if not pd.isna(val):
-                    text_color = 'white' if val > threshold else 'black'
-                    ax.text(j, i, f"{val:.1f}%", va='center', ha='center', 
-                            fontsize=8, color=text_color)
-        
-        plt.tight_layout()
-        
-        # Return the image buffer
-        return _save_fig_to_buffer(fig)
-
-    except Exception as e:
-        logger.error(f"Failed to build heatmap: {e}")
-        raise e
 
 @task
 def generate_blood_group_line_graph(db_path, table:str) -> io.BytesIO:
