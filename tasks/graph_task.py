@@ -12,24 +12,24 @@ import matplotlib.dates as mdates
 
 
 def _save_fig_to_buffer(fig) -> io.BytesIO:
-    """Saves a matplotlib figure to an in-memory buffer."""
+
     buf = io.BytesIO()
     try:
         fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
-        buf.seek(0) # Rewind the buffer to the beginning so it can be read
+        buf.seek(0) 
         return buf
     finally:
-        plt.close(fig) # Explicitly close to prevent memory leaks in long-running flows
+        plt.close(fig) 
 
 @task
 def generate_heatmap_retention(rate_retention:dict) -> io.BytesIO:
-    logger = get_run_logger() # Initialize logger if using Prefect 2.x
+    logger = get_run_logger() 
     
     try:
         matrix_data = []
         rows = []
 
-        # 1. Process Data
+  
         for start_year, data in rate_retention.items():
             rows.append(start_year)
             base_count = data['total']
@@ -51,18 +51,15 @@ def generate_heatmap_retention(rate_retention:dict) -> io.BytesIO:
         df = pd.DataFrame(matrix_data, index=rows)
         df = df.sort_index()
 
-        # 2. Create Figure (Assign to 'fig' variable)
+
         fig = plt.figure(figsize=(12, 8))
-        
-        # 3. Plot Heatmap
         ax = sns.heatmap(df, 
                         annot=True, 
-                        fmt=".1f", 
+                        fmt=".0f", 
                         cmap="Reds", 
                         cbar=False, 
-                        vmin=0, vmax=100) 
+                        vmin=0, vmax=50) 
 
-        # 4. Styling
         ax.set_title("% of Donors Still Donating after N Years", fontsize=16, pad=40)
         ax.set_ylabel("Donated Blood in", fontsize=14, labelpad=20)
         ax.xaxis.tick_top()
@@ -128,6 +125,182 @@ def calculate_retention(db_path, table,total_donation) -> dict:
             con.close()
             logger.info("Database connection closed.")
 
+@task
+def generate_donor_heatmap_demographic(db_path):
+    con = None
+    try:
+        # --- 1. Fetch Data ---
+        con = duckdb.connect(db_path)
+    
+        # Using the Unified CTE Query (Population + Donors)
+        query = """
+        WITH pop_stats AS (
+            SELECT 
+                sex as gender, 
+                age,
+                CASE 
+                    WHEN ethnicity = 'bumi_malay' THEN 'Malay'
+                    WHEN ethnicity = 'chinese' THEN 'Chinese'
+                    WHEN ethnicity = 'indian' THEN 'Indian'
+                    WHEN ethnicity = 'other_noncitizen' THEN 'Foreigner'
+                    ELSE 'Lain-lain'
+                END AS race,
+                SUM(population) * 1000 as total_population
+            FROM main.population p 
+            WHERE YEAR(date) = 2025
+            AND age NOT IN ('0-4','5-9','10-14','65-69','70-74','75-79','80-84','85+','overall')
+            AND sex IN ('male', 'female')
+            GROUP BY 1, 2, 3
+        ),
+
+        donor_stats AS (
+            SELECT 
+                gender,
+                age,
+                race, 
+                COUNT(*) AS total_donations
+            FROM (
+                SELECT 
+                    CASE 
+                        WHEN d.gender = 'F' THEN 'female'
+                        WHEN d.gender = 'M' THEN 'male'
+                    END as gender, 
+                    CASE 
+                        WHEN r.race = 'chinese' THEN 'Chinese'
+                        WHEN r.race = 'indian' THEN 'Indian'
+                        WHEN r.race = 'malay' THEN 'Malay'
+                        WHEN r.race = 'foreigner' THEN 'Foreigner'
+                        ELSE 'Lain-lain' 
+                    END AS race,
+                    CASE 
+                        WHEN d.age BETWEEN 15 AND 19 THEN '15-19'
+                        WHEN d.age BETWEEN 20 AND 24 THEN '20-24'
+                        WHEN d.age BETWEEN 25 AND 29 THEN '25-29'
+                        WHEN d.age BETWEEN 30 AND 34 THEN '30-34'
+                        WHEN d.age BETWEEN 35 AND 39 THEN '35-39'
+                        WHEN d.age BETWEEN 40 AND 44 THEN '40-44'
+                        WHEN d.age BETWEEN 45 AND 49 THEN '45-49'
+                        WHEN d.age BETWEEN 50 AND 54 THEN '50-54'
+                        WHEN d.age BETWEEN 55 AND 59 THEN '55-59'
+                        WHEN d.age BETWEEN 60 AND 64 THEN '60-64'
+                    END AS age
+                FROM main.donorrate d 
+                LEFT JOIN main.race r ON d.race = r.race_code
+                WHERE d.latest BETWEEN '2025-01-06' AND '2026-01-05'
+                  AND d.age BETWEEN 15 AND 64
+            ) AS cleaned_data 
+            GROUP BY 1, 2, 3
+        )
+
+        SELECT 
+            p.gender,
+            p.race,
+            p.age,
+            (COALESCE(d.total_donations, 0) / p.total_population::FLOAT) * 100 as donation_rate_pct
+        FROM pop_stats p
+        LEFT JOIN donor_stats d 
+            ON p.gender = d.gender 
+            AND p.race = d.race 
+            AND p.age = d.age
+        ORDER BY p.gender, p.race, p.age;
+        """
+        
+        raw_df = con.execute(query).fetch_df()
+
+        # --- 2. Process Data ---
+        
+        # Pivot the data from Long format to Wide format for the Heatmap
+        # Index: gender, race | Columns: age | Values: donation_rate_pct
+        df_pivot = raw_df.pivot_table(
+            index=['gender', 'race'], 
+            columns='age', 
+            values='donation_rate_pct'
+        ).reset_index()
+
+        # Define the exact age columns order (matching SQL output format)
+        age_cols = ['15-19', '20-24', '25-29', '30-34', '35-39', 
+                    '40-44', '45-49', '50-54', '55-59', '60-64']
+        
+        # Ensure only these columns exist (and in correct order)
+        df_pivot = df_pivot[['gender', 'race'] + age_cols]
+
+        # Calculate 'Overall' (Row Mean)
+        df_pivot['Overall'] = df_pivot[age_cols].mean(axis=1)
+
+        # Define Custom Race Order for display
+        custom_order = ['Chinese', 'Indian', 'Malay', 'Lain-lain', 'Foreigner']
+
+        # Split into Male and Female DataFrames & Format Index
+        # Male
+        df_m = df_pivot[df_pivot['gender'] == 'male'].set_index('race').reindex(custom_order)
+        df_m.index = df_m.index + ' M'  # e.g., "Chinese M"
+        
+        # Female
+        df_f = df_pivot[df_pivot['gender'] == 'female'].set_index('race').reindex(custom_order)
+        df_f.index = df_f.index + ' F'  # e.g., "Chinese F"
+
+        # --- 3. Plotting ---
+        fig, (ax_top, ax_bot) = plt.subplots(2, 1, figsize=(12, 7), sharex=True,
+                                             gridspec_kw={'height_ratios': [1, 1]})
+
+        fig.suptitle("Malaysia: Blood Donor Participation Rate (%) by Sex, Ethnicity, and Age\n(Donors / Total Population)",
+                     fontsize=14, y=0.98)
+
+        def plot_segment(data, ax, is_top=False):
+            # 1. Main Heatmap
+            # Note: vmin/vmax might need adjustment based on real data ranges (e.g. 0 to 3%)
+            sns.heatmap(data[age_cols], annot=True, fmt=".2f", cmap="Greens", vmin=0, vmax=3,
+                        cbar=False, ax=ax, linewidths=1, linecolor='white', annot_kws={"size": 11})
+
+            # 2. Inset for Overall 
+            ax_ovr = ax.inset_axes([1.02, 0, 0.1, 1])
+            sns.heatmap(data[['Overall']], annot=True, fmt=".2f", cmap="Greens", vmin=0, vmax=3,
+                        cbar=False, ax=ax_ovr, linewidths=1, linecolor='white', annot_kws={"size": 11})
+
+            # --- CLEANING Y-AXIS (SIDE TITLES) ---
+            ax.set_ylabel('') 
+            ax.tick_params(axis='y', rotation=0, labelsize=11)
+            
+            ax_ovr.set_ylabel('') 
+            ax_ovr.set_yticks([]) 
+
+            # --- X-AXIS LABELS ---
+            if is_top:
+                # Move ticks to top
+                ax.xaxis.tick_top()
+                ax.set_xticklabels(age_cols, rotation=0, fontsize=11)
+                
+                # Overall column label at top only
+                ax_ovr.xaxis.tick_top()
+                ax_ovr.set_xticklabels(['Overall'], rotation=0, fontsize=11)
+            else:
+                # Show age labels at the bottom for bottom plot
+                ax.set_xticklabels(age_cols, rotation=0, fontsize=11)
+                # Remove Overall label from bottom plot
+                ax_ovr.set_xticklabels([])
+
+            # Clear tick marks
+            ax.tick_params(left=False, bottom=False, top=False)
+            ax_ovr.tick_params(left=False, bottom=False, top=False)
+
+        # Plot Segments
+        plot_segment(df_m, ax_top, is_top=True)
+        plot_segment(df_f, ax_bot, is_top=False)
+
+        # Enable x-axis ticks at the bottom explicitly
+        ax_bot.tick_params(axis='x', bottom=True, top=False, labelbottom=True)
+        ax_bot.xaxis.set_tick_params(length=6)
+
+        plt.subplots_adjust(top=0.88, bottom=0.08, left=0.15, right=0.9, hspace=0.2)
+        
+        return _save_fig_to_buffer(fig)
+
+    except Exception as e:
+        print(f"Error generating heatmap: {e}")
+        raise e
+    finally:
+        if con:
+            con.close()
 # @task
 # def generate_blood_group_line_graph(db_path, table:str) -> io.BytesIO:
 #     logger = get_run_logger()

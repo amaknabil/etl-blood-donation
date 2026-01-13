@@ -95,7 +95,7 @@ def load_transformed_donorrate_to_db(url: str,table:str , db_path: str) -> int:
             con.close()
             logger.info("Database connection closed.")
 
-@task( retries=16, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data1")
+@task( retries=95, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data1")
 def check_available_daily_data(base_url: str, db_path: str, table: str):
     logger = get_run_logger()
     con = None
@@ -138,7 +138,7 @@ def check_available_daily_data(base_url: str, db_path: str, table: str):
         if con:
             con.close()
 
-@task(retries=16, retry_delay_seconds=900,task_run_name="Check Availability {table}'s Data2")
+@task(retries=95, retry_delay_seconds=900,task_run_name="Check Availability {table}'s Data2")
 def check_available_other_data(url: str, db_path: str, table: str):
     logger = get_run_logger()
     con = None
@@ -234,62 +234,42 @@ def check_available_other_data(url: str, db_path: str, table: str):
 #             logger.info("Database connection closed.")
 
 
-# @task(retries=3, retry_delay_seconds=10)
-# def load_data_to_db(url: str, table: str, db_path: str)  -> int:
-#     con = None
-#     logger = get_run_logger()
+@task(retries=3, retry_delay_seconds=10)
+def load_data_to_db_donorrate(url: str, table: str, db_path: str) -> int:
+    con = None
+    logger = get_run_logger() # Assuming this is from Prefect or similar
     
-#     try:
-#         con = duckdb.connect(db_path)
-#         # con.execute("INSTALL httpfs; LOAD httpfs;")
+    try:
+        con = duckdb.connect(db_path)
+    
+        if url.startswith("http") or url.startswith("s3"):
+            con.execute("INSTALL httpfs; LOAD httpfs;")
 
-#         date_col = "visit_date" if table == "retention" else "latest"
+        table_exists = con.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = ?", 
+            [table]
+        ).fetchone()[0] > 0
+
+        if table_exists:
+            count_before = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        else:
+            count_before = 0
+            logger.info(f"Table '{table}' does not exist yet. Creating new.")
+
+        query = f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet('{url}')"
+        con.execute(query)
+        count_after = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        diff = count_after - count_before
         
-#         latest_date_in_db = con.execute(f"SELECT MAX({date_col}) FROM {table}").fetchone()[0]
-#         count_before = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-        
-#         today_date = datetime.now().date()
-#         differences = (today_date - latest_date_in_db).days 
+        logger.info(f"{table} refreshed. Row count changed by {diff} (From {count_before} to {count_after})")
+        return diff
 
-#         if differences <= 0:
-#             logger.info(f"Table {table} is already up to date.")
-#             return
-
-#         if table == "retention":
-#             insert_query = """
-#                 INSERT INTO {table}
-#                 SELECT *
-#                 FROM read_parquet('{url}')
-#                 WHERE visit_date = '{date}'
-#             """
-#         else:
-#             insert_query = """
-#                 INSERT INTO {table} 
-#                 SELECT *, year(latest) - birth_date as age 
-#                 FROM read_parquet('{url}') 
-#                 WHERE latest = '{date}'
-#             """
-
-#         for day in range(1, differences + 1):
-#             date_to_load = latest_date_in_db + timedelta(days=day)
-#             formatted_date = date_to_load.strftime('%Y-%m-%d')
-#             load_query = insert_query.format(
-#                 table=table, 
-#                 url=url, 
-#                 date=formatted_date
-#             )
-#             con.execute(load_query)
-#             logger.info(f"Inserted {table} for {formatted_date}")
-#         count_after = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-#         increment = count_after - count_before
-#         return in
-
-#     except Exception as e:
-#         logger.error(f"Load failed: {e}")
-#         raise
-#     finally:
-#         if con:
-#             con.close()
+    except Exception as e:
+        logger.error(f"Load failed: {e}")
+        raise
+    finally:
+        if con:
+            con.close()
         
 @task(retries=3, retry_delay_seconds=10, task_run_name="Load {table} Data")
 def load_data_to_db(url: str, table: str, db_path: str) -> tuple:
