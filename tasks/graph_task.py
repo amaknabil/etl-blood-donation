@@ -249,12 +249,12 @@ def generate_donor_heatmap_demographic(db_path):
         def plot_segment(data, ax, is_top=False):
             # 1. Main Heatmap
             # Note: vmin/vmax might need adjustment based on real data ranges (e.g. 0 to 3%)
-            sns.heatmap(data[age_cols], annot=True, fmt=".2f", cmap="Greens", vmin=0, vmax=3,
+            sns.heatmap(data[age_cols], annot=True, fmt=".1f", cmap="Greens", vmin=0, vmax=5,
                         cbar=False, ax=ax, linewidths=1, linecolor='white', annot_kws={"size": 11})
 
             # 2. Inset for Overall 
             ax_ovr = ax.inset_axes([1.02, 0, 0.1, 1])
-            sns.heatmap(data[['Overall']], annot=True, fmt=".2f", cmap="Greens", vmin=0, vmax=3,
+            sns.heatmap(data[['Overall']], annot=True, fmt=".1f", cmap="Greens", vmin=0, vmax=3,
                         cbar=False, ax=ax_ovr, linewidths=1, linecolor='white', annot_kws={"size": 11})
 
             # --- CLEANING Y-AXIS (SIDE TITLES) ---

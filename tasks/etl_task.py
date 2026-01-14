@@ -256,7 +256,7 @@ def load_data_to_db_donorrate(url: str, table: str, db_path: str) -> int:
             count_before = 0
             logger.info(f"Table '{table}' does not exist yet. Creating new.")
 
-        query = f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet('{url}')"
+        query = f"CREATE OR REPLACE TABLE {table} AS SELECT *, year(latest) - birth_date as age  FROM read_parquet('{url}')"
         con.execute(query)
         count_after = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
         diff = count_after - count_before
