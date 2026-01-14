@@ -6,7 +6,6 @@ import os
 from tasks.etl_task import load_data_to_db, check_available_daily_data,check_available_other_data, get_latest_date_in_db, load_data_to_db_donorrate
 from tasks.telegram_task import send_update_new_data_loaded,send_graphs
 from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_area_graph,calculate_retention,generate_donor_heatmap_demographic
-
  
 @flow(retries=3,retry_delay_seconds=10,name=f"ETL-Blood Donation ", log_prints=True)
 def etl_blood_donation_flow():
@@ -41,7 +40,6 @@ def etl_blood_donation_flow():
 
         daily_total_new_data_insert,latest_date_in_db = load_data_to_db(daily_url,"historical",db_path)
         retention_total_new_data,latest_date_in_db_retention = load_data_to_db(retention_url,'retention', db_path) 
-        # donorrate_total_new_data,latest_date_in_d_retention = load_data_to_db(donorrate_url,'donorrate', db_path) 
         donorrate_total_new_data= load_data_to_db_donorrate(donorrate_url,"donorrate",db_path)
         
         update_summary = {
@@ -56,10 +54,6 @@ def etl_blood_donation_flow():
         heatmap = generate_heatmap_retention(rate_retention)
         linegraph = generate_blood_group_area_graph(db_path,'historical')
         demographic = generate_donor_heatmap_demographic(db_path)
-     
-
-        # histogram = generate_age_histogram(db_path,'donorrate')
-        # boxplot = generate_age_gender_boxplot(db_path,'donorrate')
 
         send_update_new_data_loaded(update_summary,bot_token,channel_id,latest_date_in_db)
         send_graphs(bot_token,channel_id,heatmap,linegraph,demographic)
