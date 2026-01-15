@@ -145,10 +145,10 @@ def load_transformed_retention_to_db(con, url, table, batch_size=50000):
             rows_loaded = min(offset + batch_size, total_rows)
             print(f"  Loaded {rows_loaded}/{total_rows} rows ({rows_loaded/total_rows*100:.1f}%)")
         
-        # Sort after loading
+        # Sort after loading - WITHOUT using TEMP TABLE
         print("Sorting data by donor_id and visit_date...")
         sort_query = f"""
-            CREATE OR REPLACE TEMP TABLE {table}_sorted AS
+            CREATE OR REPLACE TABLE {table}_sorted AS
             SELECT * FROM {table} ORDER BY donor_id, visit_date;
             
             DROP TABLE {table};

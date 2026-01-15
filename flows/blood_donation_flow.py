@@ -39,9 +39,9 @@ def etl_blood_donation_flow():
         #     logger.info("Data is already updated. No action needed.")
         #     return
   
-        check_available_daily_data(daily_url,db_path,"historical",config)
-        check_available_other_data(retention_url,db_path,"retention",config)
-        check_available_other_data(donorrate_url,db_path,"donorrate",config)
+        #check_available_daily_data(daily_url,db_path,"historical",config)
+        # check_available_other_data(retention_url,db_path,"retention",config)
+        # check_available_other_data(donorrate_url,db_path,"donorrate",config)
 
 
         daily_total_new_data_insert,latest_date_in_db = load_data_to_db(daily_url,"historical",db_path,config)
