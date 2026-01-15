@@ -24,23 +24,29 @@ def etl_blood_donation_flow():
     
         retention_url = os.getenv("RETENTION_PARQUET_URL")
         donorrate_url = os.getenv("RATE_PARQUET_URL")
+        config = {
+            "memory_limit": "450MB",  
+            "temp_directory": "duck_temp",
+            "threads": 1, 
+            "preserve_insertion_order": False
+        }
 
         yesterday = datetime.now().date() - timedelta(days=1)
-        latest_date_db = get_latest_date_in_db(db_path,"historical")
+        latest_date_db = get_latest_date_in_db(db_path,"historical",config)
 
         # check data freshness
         # if latest_date_db == yesterday:
         #     logger.info("Data is already updated. No action needed.")
         #     return
   
-        # check_available_daily_data(daily_url,db_path,"historical")
-        # check_available_other_data(retention_url,db_path,"retention")
-        # check_available_other_data(donorrate_url,db_path,"donorrate")
+        check_available_daily_data(daily_url,db_path,"historical",config)
+        check_available_other_data(retention_url,db_path,"retention",config)
+        check_available_other_data(donorrate_url,db_path,"donorrate",config)
 
 
-        daily_total_new_data_insert,latest_date_in_db = load_data_to_db(daily_url,"historical",db_path)
-        retention_total_new_data,latest_date_in_db_retention = load_data_to_db(retention_url,'retention', db_path) 
-        donorrate_total_new_data= load_data_to_db_donorrate(donorrate_url,"donorrate",db_path)
+        daily_total_new_data_insert,latest_date_in_db = load_data_to_db(daily_url,"historical",db_path,config)
+        retention_total_new_data,latest_date_in_db_retention = load_data_to_db(retention_url,'retention', db_path,config) 
+        donorrate_total_new_data= load_data_to_db_donorrate(donorrate_url,"donorrate",db_path,config)
         
         update_summary = {
             "Retention":retention_total_new_data,
@@ -49,11 +55,11 @@ def etl_blood_donation_flow():
         }
 
         # send graph start
-        rate_retention = calculate_retention(db_path,'retention',1)
+        rate_retention = calculate_retention(db_path,'retention',1,config)
 
         heatmap = generate_heatmap_retention(rate_retention)
-        linegraph = generate_blood_group_area_graph(db_path,'historical')
-        demographic = generate_donor_heatmap_demographic(db_path)
+        linegraph = generate_blood_group_area_graph(db_path,'historical',config)
+        demographic = generate_donor_heatmap_demographic(db_path,config)
 
         send_update_new_data_loaded(update_summary,bot_token,channel_id,latest_date_in_db)
         send_graphs(bot_token,channel_id,heatmap,linegraph,demographic)

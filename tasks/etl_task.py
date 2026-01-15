@@ -96,12 +96,12 @@ def load_transformed_donorrate_to_db(url: str,table:str , db_path: str) -> int:
             logger.info("Database connection closed.")
 
 @task( retries=95, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data1")
-def check_available_daily_data(base_url: str, db_path: str, table: str):
+def check_available_daily_data(base_url: str, db_path: str, table: str,config):
     logger = get_run_logger()
     con = None
     
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
         latest_date_in_db = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()[0]
         yesterday = datetime.now().date() - timedelta(days=1)
         
@@ -139,12 +139,12 @@ def check_available_daily_data(base_url: str, db_path: str, table: str):
             con.close()
 
 @task(retries=95, retry_delay_seconds=900,task_run_name="Check Availability {table}'s Data2")
-def check_available_other_data(url: str, db_path: str, table: str):
+def check_available_other_data(url: str, db_path: str, table: str,config):
     logger = get_run_logger()
     con = None
 
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
         count_before = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
 
         query_remote = f"SELECT COUNT(*) FROM read_parquet('{url}')"
@@ -235,12 +235,12 @@ def check_available_other_data(url: str, db_path: str, table: str):
 
 
 @task(retries=3, retry_delay_seconds=10)
-def load_data_to_db_donorrate(url: str, table: str, db_path: str) -> int:
+def load_data_to_db_donorrate(url: str, table: str, db_path: str,config) -> int:
     con = None
     logger = get_run_logger() # Assuming this is from Prefect or similar
     
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
     
         if url.startswith("http") or url.startswith("s3"):
             con.execute("INSTALL httpfs; LOAD httpfs;")
@@ -272,12 +272,12 @@ def load_data_to_db_donorrate(url: str, table: str, db_path: str) -> int:
             con.close()
         
 @task(retries=3, retry_delay_seconds=10, task_run_name="Load {table} Data")
-def load_data_to_db(url: str, table: str, db_path: str) -> tuple:
+def load_data_to_db(url: str, table: str, db_path: str,config) -> tuple:
     logger = get_run_logger()
     con = None
     
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
         con.execute("INSTALL httpfs; LOAD httpfs;")
 
         date_col = "visit_date" if table in ["historical", "retention"] else "latest"
@@ -349,10 +349,10 @@ def load_data_to_db(url: str, table: str, db_path: str) -> tuple:
             con.close()
 
 @task(retries=3, retry_delay_seconds=10)
-def get_latest_date_in_db(db_path:str,table: str):
+def get_latest_date_in_db(db_path:str,table: str,config):
     con =None
     try:
-        with duckdb.connect(db_path, read_only=True) as con:
+        with duckdb.connect(db_path, read_only=True,config=config) as con:
 
             query = f'SELECT MAX(visit_date) FROM "{table}"'
             result = con.execute(query).fetchone()

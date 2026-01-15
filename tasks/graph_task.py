@@ -74,12 +74,12 @@ def generate_heatmap_retention(rate_retention:dict) -> io.BytesIO:
         raise e
  
 @task
-def calculate_retention(db_path, table,total_donation) -> dict:
+def calculate_retention(db_path, table,total_donation,config) -> dict:
     logger = get_run_logger()
     logger.info(f"Starting to calculate rate of retention")
     con = None
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
         results = {}
         min_year, max_year = con.execute(f"select min(year(visit_date)) ,max(year(visit_date)) from {table}").fetchall()[0]
 
@@ -126,11 +126,11 @@ def calculate_retention(db_path, table,total_donation) -> dict:
             logger.info("Database connection closed.")
 
 @task
-def generate_donor_heatmap_demographic(db_path):
+def generate_donor_heatmap_demographic(db_path,config):
     con = None
     try:
         # --- 1. Fetch Data ---
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
     
         # Using the Unified CTE Query (Population + Donors)
         query = """
@@ -359,11 +359,11 @@ def generate_donor_heatmap_demographic(db_path):
 #             logger.info("Database connection closed.")
 
 @task
-def generate_blood_group_area_graph(db_path, table:str) -> io.BytesIO:
+def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
     logger = get_run_logger()
     con = None
     try:
-        con = duckdb.connect(db_path)
+        con = duckdb.connect(db_path,config=config)
         
         # 1. Get Date Range
         latest_date_query = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()

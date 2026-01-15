@@ -12,6 +12,12 @@ donnorrate_url = os.getenv("RATE_PARQUET_URL")
 population_url = os.getenv("POPULATION_URL")
 
 db_path = os.getenv("DUCKDB_FILE_PATH") 
+config = {
+     "memory_limit": "450MB",  
+    "temp_directory": "duck_temp",
+    "threads": 1, 
+    "preserve_insertion_order": False
+}
 
 def add_table(con,csv,table):
     BASE_DIR = Path(__file__).parent
@@ -105,7 +111,7 @@ def load_population_table(con,url,table):
 
 try:
     print(f"Connecting to {db_path}")
-    con = duckdb.connect(db_path)
+    con = duckdb.connect(db_path, config=config)
     print(f"Successfully connected to {db_path}\n")
     add_table(con,'inst_code.csv','inst_code')
     add_table(con,'race.csv','race')
