@@ -19,9 +19,7 @@ config = {
     "temp_directory": "./duck_temp",  # Ensure temp directory exists
     "max_temp_directory_size": "2GB",  # Increase temp directory size
     "threads": 1, 
-    "preserve_insertion_order": False,
-    "enable_object_cache": False,
-    "enable_progress_bar": False
+    "preserve_insertion_order": False
 }
 
 def add_table(con, csv, table):
