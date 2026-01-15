@@ -250,20 +250,6 @@ def main():
         
         print("Successfully loaded all data to each tables")
         
-        # Show table sizes
-        print("\nTable sizes:")
-        size_query = """
-            SELECT table_name, 
-                   SUM(row_count) as rows,
-                   SUM(approx_total_size) as size_bytes,
-                   SUM(approx_total_size) / 1024 / 1024 as size_mb
-            FROM duckdb_tables()
-            GROUP BY table_name
-            ORDER BY size_bytes DESC
-        """
-        tables = con.execute(size_query).fetchall()
-        for table in tables:
-            print(f"  {table[0]}: {table[1]:,} rows, {table[3]:.1f} MB")
         
         con.close()
         print("\nDatabase closed successfully")
