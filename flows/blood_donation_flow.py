@@ -6,7 +6,8 @@ import os
 from tasks.etl_task import load_data_to_db, check_available_daily_data,check_available_other_data, get_latest_date_in_db, load_data_to_db_donorrate
 from tasks.telegram_task import send_update_new_data_loaded,send_graphs
 from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_area_graph,calculate_retention,generate_donor_heatmap_demographic
- 
+from prefect.client.schemas.schedules import CronSchedule
+
 @flow(retries=3,retry_delay_seconds=10,name=f"ETL-Blood Donation ", log_prints=True)
 def etl_blood_donation_flow():
     try:
@@ -71,7 +72,11 @@ if __name__ == "__main__":
 
     etl_blood_donation_flow.serve(
         name=f"daily-blood-data-deployment",
-        
-        #  every 10 minutes
-        cron="*/10 * * * *"
+        schedule=CronSchedule(
+            cron="0 8 * * *", 
+            timezone="Asia/Kuala_Lumpur"
         )
+        
+
+        )
+ 
