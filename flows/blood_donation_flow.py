@@ -40,7 +40,7 @@ def etl_blood_donation_flow():
         #     logger.info("Data is already updated. No action needed.")
         #     return
   
-        #check_available_daily_data(daily_url,db_path,"historical",config)
+        check_available_daily_data(daily_url,db_path,"historical",config)
         # check_available_other_data(retention_url,db_path,"retention",config)
         # check_available_other_data(donorrate_url,db_path,"donorrate",config)
 
