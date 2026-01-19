@@ -1,0 +1,39 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /home/amak/etl-blood-donation
+          git pull origin main
+          source venv/bin/activate
+          pip install -r requirements.txt
+          sudo systemctl restart prefect-flow.service
+
+    - name: Notify Discord
+      if: success()  # Only run if the deploy succeeded
+      uses: appleboy/discord-action@v1.2.0
+      with:
+        webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+        message: " **Deploy Success!**\nYour ETL Pipeline has been updated on the DigitalOcean server."
+    
+    - name: Notify Discord Failure
+      if: failure()  # Only run if the deploy FAILED
+      uses: appleboy/discord-action@v1.2.0
+      with:
+        webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
+        message: " **Deploy FAILED!**\nCheck the GitHub Actions logs immediately."

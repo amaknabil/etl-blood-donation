@@ -73,5 +73,5 @@ if __name__ == "__main__":
         name=f"daily-blood-data-deployment",
         
         #  every 10 minutes
-        # cron="*/10 * * * *",
-    )
+        cron="*/10 * * * *"
+        )
