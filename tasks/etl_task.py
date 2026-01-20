@@ -1,8 +1,9 @@
 import duckdb
-from datetime import datetime, timedelta
-from prefect import task
+from datetime import datetime, timedelta, timezone
+from prefect import task,runtime
 from prefect.logging import get_run_logger
 import httpx
+import telebot
 
 
 
@@ -96,7 +97,7 @@ def load_transformed_donorrate_to_db(url: str,table:str , db_path: str) -> int:
             logger.info("Database connection closed.")
 
 @task( retries=95, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data1")
-def check_available_daily_data(base_url: str, db_path: str, table: str,config):
+def check_available_daily_data(base_url: str, db_path: str, table: str,config,channel_id,bot_token):
     logger = get_run_logger()
     con = None
     
@@ -126,6 +127,30 @@ def check_available_daily_data(base_url: str, db_path: str, table: str,config):
                 logger.info(f"Found: {formatted_date}")
                 continue 
             elif response.status_code == 404:
+                # Notify Telegram about missing data
+                try:
+                    bot = telebot.TeleBot(bot_token)
+                    run_count = runtime.task_run.run_count
+                    now_utc = datetime.now(timezone.utc)
+                    now_gmt8 = now_utc + timedelta(hours=8)
+                    next_retry_time = now_gmt8 + timedelta(minutes=15)
+
+                    current_time_str = now_gmt8.strftime("%H:%M:%S")
+                    next_retry_str = next_retry_time.strftime("%H:%M:%S")
+                    
+                    message = (
+                        f"<b>Data Not Available Yet</b>\n\n"
+                        f"Date: <code>{formatted_date}</code>\n"
+                        f"Try: {run_count}\n"
+                        f"Time: {current_time_str}\n"
+                        f"Next Retry on: {next_retry_str}\n\n"
+                        f"<i>Waiting for retry...</i>"
+                    )
+                    
+                    bot.send_message(channel_id, message, parse_mode='HTML')
+                    logger.info(f"Sent Telegram notification for missing data: {formatted_date}")
+                except Exception as telegram_error:
+                    logger.error(f"Failed to send Telegram notification: {telegram_error}")
                 raise ValueError(f"Required data for {formatted_date} is missing (404).")
             else:
                 raise Exception(f"Server error {response.status_code} for {formatted_date}")

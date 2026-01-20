@@ -8,7 +8,7 @@ import io
 import pandas as pd
 
 import duckdb
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 @task(retries=2, retry_delay_seconds=5)
 def send_update_new_data_loaded(updates: dict, bot_token: str, channel_id: str, latest_date_in_db):
@@ -143,3 +143,33 @@ def send_graphs(bot_token: str, channel_id: str, *graphs):
         logger.error(f"❌ Failed to send telegram message: {e}")
         # We don't raise here if we want the flow to finish even if notification fails
         # raise e
+
+
+@task(retries=3, retry_delay_seconds=10)
+def send_fail_notification(bot_token: str, channel_id: str, error):
+    logger = get_run_logger()
+    
+    try:
+        bot = telebot.TeleBot(bot_token)
+    
+        utc_now = datetime.now(timezone.utc)
+        gmt8_time = utc_now + timedelta(hours=8)
+        formatted_time = gmt8_time.strftime("%Y-%m-%d %H:%M:%S (GMT+8)")
+
+        error_message = str(error)
+        
+        # Format the message with HTML
+        message_text = (
+            f"<b>Task Failed</b>\n\n"
+            f"<b>Time:</b> <code>{formatted_time}</code>\n\n"
+            f"<b>Error:</b> <pre>{error_message}</pre>"
+        )
+        
+        # Send the message
+        bot.send_message(channel_id, message_text, parse_mode='HTML')
+        logger.info(f"Failure notification sent to channel {channel_id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
+        pass
+

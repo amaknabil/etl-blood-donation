@@ -4,15 +4,16 @@ from prefect import flow
 from prefect.logging import get_run_logger
 import os
 from tasks.etl_task import load_data_to_db, check_available_daily_data,check_available_other_data, get_latest_date_in_db, load_data_to_db_donorrate
-from tasks.telegram_task import send_update_new_data_loaded,send_graphs
+from tasks.telegram_task import send_update_new_data_loaded,send_graphs,send_fail_notification
 from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_area_graph,calculate_retention,generate_donor_heatmap_demographic
 from prefect.client.schemas.schedules import CronSchedule
 
 @flow(retries=3,retry_delay_seconds=10,name=f"ETL-Blood Donation ", log_prints=True)
 def etl_blood_donation_flow():
+    bot_token = None
+    channel_id = None
+    logger = get_run_logger()
     try:
-        logger = get_run_logger()
-
         env_path = find_dotenv()
         load_dotenv(env_path)
 
@@ -40,7 +41,7 @@ def etl_blood_donation_flow():
         #     logger.info("Data is already updated. No action needed.")
         #     return
   
-        check_available_daily_data(daily_url,db_path,"historical",config)
+        check_available_daily_data(daily_url,db_path,"historical",config,channel_id,bot_token)
         # check_available_other_data(retention_url,db_path,"retention",config)
         # check_available_other_data(donorrate_url,db_path,"donorrate",config)
 
@@ -66,7 +67,13 @@ def etl_blood_donation_flow():
         send_graphs(bot_token,channel_id,heatmap,linegraph,demographic)
 
     except Exception as e:
-        logger.error(f"Failed because: {e}")
+        logger.error(f"Flow failed because: {e}")
+        
+        if bot_token and channel_id:
+            send_fail_notification(bot_token, channel_id, e)
+        else:
+            logger.error("Could not send failure notification due to missing bot_token or channel_id")
+        raise
 
 if __name__ == "__main__":
 
