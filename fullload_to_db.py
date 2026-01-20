@@ -15,9 +15,9 @@ db_path = os.getenv("DUCKDB_FILE_PATH")
 
 # Optimized config for 1GB RAM
 config = {
-    "memory_limit": "256MB",  # Reduce memory limit
-    "temp_directory": "./duck_temp",  # Ensure temp directory exists
-    "max_temp_directory_size": "2GB",  # Increase temp directory size
+    "memory_limit": "256MB",  
+    "temp_directory": "./duck_temp",  
+    "max_temp_directory_size": "2GB",  
     "threads": 1, 
     "preserve_insertion_order": False
 }
@@ -35,20 +35,16 @@ def add_table(con, csv, table):
         print(f"Fail for {table} because :{e} ")
 
 def load_data_in_batches(con, url, table, batch_size=100000):
-    """Load data in batches to reduce memory usage"""
     try:
         print(f"Starting to load data into table {table} in batches...")
         
-        # First, get total row count
         count_query = f"SELECT COUNT(*) as total_rows FROM read_parquet('{url}')"
         result = con.execute(count_query).fetchone()
         total_rows = result[0] if result else 0
         print(f"Total rows to process: {total_rows}")
         
-        # Create empty table with schema
+      
         con.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet('{url}') LIMIT 0")
-        
-        # Load in batches
         for offset in range(0, total_rows, batch_size):
             batch_query = f"""
                 INSERT INTO {table} 
@@ -68,14 +64,12 @@ def load_transformed_historical_to_db(con, url, table, batch_size=50000):
     """Load and transform historical data in batches"""
     try:
         print(f"Starting to load data into table {table}...")
-        
-        # First, get total row count
         count_query = f"SELECT COUNT(*) as total_rows FROM read_parquet('{url}')"
         result = con.execute(count_query).fetchone()
         total_rows = result[0] if result else 0
         print(f"Total rows to process: {total_rows}")
         
-        # Create empty table with schema
+        
         create_table_query = f"""
             CREATE OR REPLACE TABLE {table} (
                 inst_code VARCHAR,
@@ -145,7 +139,7 @@ def load_transformed_retention_to_db(con, url, table, batch_size=50000):
             rows_loaded = min(offset + batch_size, total_rows)
             print(f"  Loaded {rows_loaded}/{total_rows} rows ({rows_loaded/total_rows*100:.1f}%)")
         
-        # Sort after loading - WITHOUT using TEMP TABLE
+        
         print("Sorting data by donor_id and visit_date...")
         sort_query = f"""
             CREATE OR REPLACE TABLE {table}_sorted AS
@@ -165,7 +159,7 @@ def load_transformed_donorrate_to_db(con, url, table, batch_size=50000):
     try:
         print(f"Starting to loading data into table {table}")
         
-        # Get total row count
+        
         count_query = f"SELECT COUNT(*) as total_rows FROM read_parquet('{url}')"
         result = con.execute(count_query).fetchone()
         total_rows = result[0] if result else 0
@@ -174,7 +168,6 @@ def load_transformed_donorrate_to_db(con, url, table, batch_size=50000):
         # Create empty table
         con.execute(f"CREATE OR REPLACE TABLE {table} AS SELECT * FROM read_parquet('{url}') LIMIT 0")
         
-        # Load in batches
         for offset in range(0, total_rows, batch_size):
             batch_query = f"""
                 INSERT INTO {table} 
@@ -185,7 +178,6 @@ def load_transformed_donorrate_to_db(con, url, table, batch_size=50000):
             rows_loaded = min(offset + batch_size, total_rows)
             print(f"  Loaded {rows_loaded}/{total_rows} rows ({rows_loaded/total_rows*100:.1f}%)")
         
-        # Add age column after loading
         print("Calculating ages...")
         con.execute(f"""
             ALTER TABLE {table} ADD COLUMN age INTEGER;
@@ -227,9 +219,6 @@ def main():
         add_table(con, 'inst_code.csv', 'inst_code')
         add_table(con, 'race.csv', 'race')
         load_population_table(con, population_url, 'population')
-        
-        # Load the problematic historical table with batch processing
-        # Adjust batch_size based on your available memory
         load_transformed_historical_to_db(con, historical_url, 'historical', batch_size=30000)
         
         # Load other tables

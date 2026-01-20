@@ -25,14 +25,14 @@ jobs:
           sudo systemctl restart prefect-flow.service
 
     - name: Notify Discord
-      if: success()  # Only run if the deploy succeeded
+      if: success()  
       uses: appleboy/discord-action@v1.2.0
       with:
         webhook_url: ${{ secrets.DISCORD_WEBHOOK }}
         message: " **Deploy Success!**\nYour ETL Pipeline has been updated on the DigitalOcean server."
     
     - name: Notify Discord Failure
-      if: failure()  # Only run if the deploy FAILED
+      if: failure()  
       uses: appleboy/discord-action@v1.2.0
       with:
         webhook_url: ${{ secrets.DISCORD_WEBHOOK }}

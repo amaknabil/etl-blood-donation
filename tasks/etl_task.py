@@ -96,7 +96,7 @@ def load_transformed_donorrate_to_db(url: str,table:str , db_path: str) -> int:
             con.close()
             logger.info("Database connection closed.")
 
-@task( retries=95, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data1")
+@task( retries=95, retry_delay_seconds=900, task_run_name="Check Availability {table}'s Data")
 def check_available_daily_data(base_url: str, db_path: str, table: str,config,channel_id,bot_token):
     logger = get_run_logger()
     con = None
@@ -191,72 +191,6 @@ def check_available_other_data(url: str, db_path: str, table: str,config):
     finally:
         if con:
             con.close()
-
-
-# @task(retries=3, retry_delay_seconds=10)
-# def load_incremental_daily(url:str , table:str ,db_path:str) -> dict: 
-
-#     logger = get_run_logger()
-#     logger.info(f"Starting to do incremental load for table {table}")
-
-#     con = None
-#     try:
-#         con = duckdb.connect(db_path)
-#         today_date = datetime.now().date()
-        
-#         latest_date_in_db = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()[0]
-#         total_data_before = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-        
-#         latest_successful_date = None 
-#         differences = (today_date - latest_date_in_db).days 
-
-#         if differences <= 0:
-#             logger.info(f"No new data or DB is ahead. Latest: {latest_date_in_db}")
-#             return {"new_rows": 0, "latest_date": latest_date_in_db}
-
-#         for day in range(1, differences + 1):
-#             date_to_load = latest_date_in_db + timedelta(days=day)
-#             day_url = f"{url}{date_to_load.strftime('%Y-%m-%d')}.parquet"
-
-#             query = f"""INSERT INTO {table} 
-#                         SELECT 
-#                             inst_code,
-#                             CAST(visit_date AS DATE) as visit_date,
-#                             CAST(NULLIF(previous_visit, '1800-08-10') AS DATE) as previous_visit,
-#                             (CAST(visit_date AS DATE) - CAST(NULLIF(previous_visit, '1800-08-10') AS DATE)) as days_since_last,
-#                             CASE WHEN previous_visit = '1800-08-10' THEN TRUE ELSE FALSE END as is_first_visit,
-#                             donation_type,
-#                             donation_location,
-#                             classification_id,
-#                             blood_group
-#                         FROM read_parquet('{day_url}')"""
-            
-#             try:
-#                 con.execute(query)
-#                 logger.info(f"Successfully loaded: {date_to_load}")
-#                 latest_successful_date = date_to_load
-#             except duckdb.IOException:
-#                 logger.warning(f"Data for {date_to_load} not available yet.")
-#                 break
-#             except Exception as e:
-#                 logger.error(f"Failed at {date_to_load}: {e}")
-#                 break
-
-#         if latest_successful_date:
-#             total_data_after = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-#             final_max_date = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()[0]
-#             total_new_data = total_data_after - total_data_before
-#             return total_new_data, final_max_date
-#         else:
-#             return 0, latest_date_in_db
-
-#     except Exception as e:
-#         logger.error(f"Daily incremental load failed: {e}")
-#         raise # Re-raise so Prefect knows the task failed
-#     finally:
-#         if con:
-#             con.close()
-#             logger.info("Database connection closed.")
 
 
 @task(retries=3, retry_delay_seconds=10)

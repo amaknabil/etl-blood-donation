@@ -93,8 +93,6 @@ def send_daily_report(db_path:str,bot_token:str,channel_id:str):
         if con:
             con.close()
 
-
-
 @task
 def send_graphs(bot_token: str, channel_id: str, *graphs):
     """

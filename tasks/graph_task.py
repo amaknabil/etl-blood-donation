@@ -129,10 +129,8 @@ def calculate_retention(db_path, table,total_donation,config) -> dict:
 def generate_donor_heatmap_demographic(db_path,config):
     con = None
     try:
-        # --- 1. Fetch Data ---
         con = duckdb.connect(db_path,config=config)
     
-        # Using the Unified CTE Query (Population + Donors)
         query = """
             WITH pop_stats AS (
             SELECT 
@@ -292,11 +290,10 @@ def generate_donor_heatmap_demographic(db_path,config):
             ax.tick_params(left=False, bottom=False, top=False)
             ax_ovr.tick_params(left=False, bottom=False, top=False)
 
-        # Plot Segments
+       
         plot_segment(df_m, ax_top, is_top=True)
         plot_segment(df_f, ax_bot, is_top=False)
 
-        # Enable x-axis ticks at the bottom explicitly
         ax_bot.tick_params(axis='x', bottom=True, top=False, labelbottom=True)
         ax_bot.xaxis.set_tick_params(length=6)
 
@@ -310,53 +307,6 @@ def generate_donor_heatmap_demographic(db_path,config):
     finally:
         if con:
             con.close()
-# @task
-# def generate_blood_group_line_graph(db_path, table:str) -> io.BytesIO:
-#     logger = get_run_logger()
-#     con = None
-#     try:
-#         con = duckdb.connect(db_path)
-#         # 1. Get Date Range
-#         latest_date_query = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()
-#         max_date = pd.to_datetime(latest_date_query[0])
-#         start_date = max_date - timedelta(days=29)
-
-#         # 2. Get Data
-#         df = pd.read_sql(f"""
-#             SELECT visit_date, blood_group, COUNT(*) as total_donations
-#             FROM {table}
-#             WHERE visit_date >= '{start_date.strftime('%Y-%m-%d')}'
-#             AND visit_date <= '{max_date.strftime('%Y-%m-%d')}'
-#             AND blood_group NOT IN ('N','U')
-#             GROUP BY visit_date, blood_group
-#             ORDER BY visit_date
-#         """, con)
-#         df['visit_date'] = pd.to_datetime(df['visit_date'])
-
-#         # 3. Plot
-#         fig, ax = plt.subplots(figsize=(12, 6))
-#         sns.lineplot(
-#             data=df, x='visit_date', y='total_donations', hue='blood_group', 
-#             marker='o', palette='tab10', linewidth=2, ax=ax
-#         )
-
-#         ax.set_title(f'Total Daily Donations by Blood Group (Last 30 Days)', fontsize=16)
-#         ax.set_xlabel('Date', fontsize=12)
-#         ax.set_ylabel('Donations', fontsize=12)
-#         ax.legend(title='Blood Group', bbox_to_anchor=(1.05, 1), loc='upper left')
-#         ax.grid(True, linestyle='--', alpha=0.6)
-#         plt.xticks(rotation=45)
-#         plt.tight_layout()
-
-#         return _save_fig_to_buffer(fig)
-
-#     except Exception as e:
-#         logger.error(f"Failed to generate blood group graph: {e}")
-#         raise e
-#     finally:
-#         if con:
-#             con.close()
-#             logger.info("Database connection closed.")
 
 @task
 def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
@@ -365,12 +315,12 @@ def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
     try:
         con = duckdb.connect(db_path,config=config)
         
-        # 1. Get Date Range
+        
         latest_date_query = con.execute(f"SELECT MAX(visit_date) FROM {table}").fetchone()
         max_date = pd.to_datetime(latest_date_query[0])
         start_date = max_date - timedelta(days=29)
 
-        # 2. Get Data
+    
         df = con.execute(f"""
             SELECT visit_date, blood_group, COUNT(*) as total_donations
             FROM {table}
@@ -382,10 +332,10 @@ def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
         """).df()
         df['visit_date'] = pd.to_datetime(df['visit_date'])
 
-        # 3. Pivot Data
+        
         df_pivot = df.pivot(index='visit_date', columns='blood_group', values='total_donations').fillna(0)
 
-        # 4. Plotting
+        
         fig, ax = plt.subplots(figsize=(12, 6))
 
         df_pivot.plot(
@@ -397,16 +347,11 @@ def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
             x_compat=True 
         )
 
-        # --- KEY FIXES FOR GAP REMOVAL ---
-        # 1. Force the X-axis to start exactly at start_date and end at max_date
-        # This removes the whitespace gap on the left and right.
+
         ax.set_xlim(start_date, max_date)
         
-        # 2. Ensure Y-axis starts exactly at 0 (prevents floating look)
         ax.set_ylim(bottom=0)
-        # ---------------------------------
 
-        # Formatting
         ax.xaxis.set_major_locator(mdates.DayLocator(interval=3))
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
         fig.autofmt_xdate(rotation=45, ha='right')
@@ -430,68 +375,6 @@ def generate_blood_group_area_graph(db_path, table:str,config) -> io.BytesIO:
 
     except Exception as e:
         logger.error(f"Failed to generate blood group graph: {e}")
-        raise e
-    finally:
-        if con:
-            con.close()
-            logger.info("Database connection closed.")
-
-@task
-def generate_age_histogram(db_path, table) -> io.BytesIO:
-    """Generates a histogram of donor ages."""
-    logger = get_run_logger()
-    logger.info("Generating histogram")
-    con = None
-    try:
-        con = duckdb.connect(db_path)
-        # Note: In a real production system, try to pass the dataframe 
-        # instead of querying SQL again if possible.
-        donorrate = con.execute(f"SELECT age FROM {table}").df()
-        
-        sns.set_style("whitegrid")
-        fig, ax = plt.subplots(figsize=(8, 6))
-
-        sns.histplot(
-            data=donorrate, x='age', kde=True, bins=20, 
-            color='#e74c3c', edgecolor='black', ax=ax
-        )
-        ax.set_title('Donor Age Distribution', fontsize=14, fontweight='bold')
-        ax.set_xlabel('Age', fontsize=12)
-        ax.set_ylabel('Count of Donors', fontsize=12)
-
-        return _save_fig_to_buffer(fig)
-
-    except Exception as e:
-        logger.error(f"Failed to generate age histogram: {e}")
-        raise e
-    finally:
-        if con:
-            con.close()
-            logger.info("Database connection closed.")
-
-@task
-def generate_age_gender_boxplot(db_path, table) -> io.BytesIO:
-    """Generates a boxplot of age by gender."""
-    logger = get_run_logger()
-    con = None
-    try:
-        con = duckdb.connect(db_path)
-        donorrate = con.execute(f"SELECT age, gender FROM {table}").df()
-        
-        sns.set_style("whitegrid")
-        fig, ax = plt.subplots(figsize=(8, 6))
-
-        sns.boxplot(
-            data=donorrate, x='gender', y='age', palette='Set2', ax=ax
-        )
-        ax.set_title('Age Distribution by Gender', fontsize=14, fontweight='bold')
-        ax.set_xlabel('Gender', fontsize=12)
-        ax.set_ylabel('Age', fontsize=12)
-
-        return _save_fig_to_buffer(fig)
-
-    except Exception as e:
-        logger.error(f"Failed to generate age boxplot: {e}")
         raise e
     finally:
         if con:

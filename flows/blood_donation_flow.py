@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from prefect import flow
 from prefect.logging import get_run_logger
 import os
-from tasks.etl_task import load_data_to_db, check_available_daily_data,check_available_other_data, get_latest_date_in_db, load_data_to_db_donorrate
+from tasks.etl_task import load_data_to_db, check_available_daily_data, get_latest_date_in_db, load_data_to_db_donorrate
 from tasks.telegram_task import send_update_new_data_loaded,send_graphs,send_fail_notification
-from tasks.graph_task import generate_heatmap_retention,generate_age_gender_boxplot,generate_age_histogram,generate_blood_group_area_graph,calculate_retention,generate_donor_heatmap_demographic
+from tasks.graph_task import generate_heatmap_retention,generate_blood_group_area_graph,calculate_retention,generate_donor_heatmap_demographic
 from prefect.client.schemas.schedules import CronSchedule
 
 @flow(retries=3,retry_delay_seconds=10,name=f"ETL-Blood Donation ", log_prints=True)
@@ -37,15 +37,12 @@ def etl_blood_donation_flow():
         latest_date_db = get_latest_date_in_db(db_path,"historical",config)
 
         # check data freshness
-        # if latest_date_db == yesterday:
-        #     logger.info("Data is already updated. No action needed.")
-        #     return
+        if latest_date_db == yesterday:
+            logger.info("Data is already updated. No action needed.")
+            return
   
         check_available_daily_data(daily_url,db_path,"historical",config,channel_id,bot_token)
-        # check_available_other_data(retention_url,db_path,"retention",config)
-        # check_available_other_data(donorrate_url,db_path,"donorrate",config)
-
-
+        
         daily_total_new_data_insert,latest_date_in_db = load_data_to_db(daily_url,"historical",db_path,config)
         retention_total_new_data,latest_date_in_db_retention = load_data_to_db(retention_url,'retention', db_path,config) 
         donorrate_total_new_data= load_data_to_db_donorrate(donorrate_url,"donorrate",db_path,config)
